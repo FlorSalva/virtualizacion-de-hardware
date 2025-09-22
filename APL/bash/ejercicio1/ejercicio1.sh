@@ -146,7 +146,7 @@ for file in "$DIRECTORIO"/*.txt; do
 done
 
 # -----------------------------
-# Construir JSON (CORREGIDO)
+# Construir JSON
 # -----------------------------
 json="{"
 primera_fecha=1 # Bandera para saber si estamos en la primera fecha
