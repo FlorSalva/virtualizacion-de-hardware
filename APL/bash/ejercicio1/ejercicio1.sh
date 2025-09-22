@@ -1,18 +1,37 @@
 #!/bin/bash
+#
+# ================================== Encabezado ==============================
+# Nombre del script: ejercicio1.sh
+# Numero de ejercicio: 1
 
+# ============================================================================
+
+# -------------------------- Integrantes del grupo ---------------------------
+#
+# Nombre/s	        |	Apellido/s	    |	DNI
+
+# Karina	        | Familia Cruz		| 42.838.266 
+# Luciano Dario     | Gomez		        | 41.572.055 
+# Micaela Valeria	| Puca			    | 39.913.189
+# Franco Damian		| Sabes			    | 38.168.884
+# Florencia		    | Salvatierra		| 38.465.901 
+
+#------------------------------------------------------------------------------
+
+# Función para mostrar ayuda
 mostrar_ayuda() {
-    echo "Uso: $0 [OPCIONES]"
+    echo "Uso: $0"
     echo ""
-    echo "Opciones:"
+    echo "[OPCIONES]"
     echo "  -h, --help          Muestra esta ayuda."
     echo "  -d, --directorio    Ruta del directorio con los archivos de encuestas."
     echo "  -a, --archivo       Ruta completa del archivo JSON de salida (excluyente con -p)."
     echo "  -p, --pantalla      Muestra la salida por pantalla (excluyente con -a)."
 }
 
+# Validación de parámetros
 DIRECTORIO=""
-SALIDA=""
-
+ARCHIVO_DE_SALIDA=""
 FLAG_ARCHIVO=0
 FLAG_PANTALLA=0
 MODO=""
@@ -25,12 +44,22 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         -d|--directorio)
+        # Verifica si hay un argumento después de -d
+            if [[ -z "$2" || "$2" == -* ]]; then
+                echo "Error: se requiere la ruta del directorio después de $1" >&2
+                exit 1
+            fi
             DIRECTORIO="$2"
             shift 2
             ;;
         -a|--archivo)
+        # Verifica si hay un argumento después de -a
             FLAG_ARCHIVO=1
-            SALIDA="$2"
+            if [[ -z "$2" || "$2" == -* ]]; then
+                echo "Error: se requiere la ruta del archivo JSON después de $1" >&2
+                exit 1
+            fi
+            ARCHIVO_DE_SALIDA="$2"
             shift 2
             ;;
         -p|--pantalla)
@@ -38,7 +67,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            echo "Error: parámetro desconocido: $1"
+            echo "Error: parámetro desconocido o argumento faltante: $1" >&2
             mostrar_ayuda
             exit 1
             ;;
@@ -49,42 +78,60 @@ done
 # Validaciones de parámetros
 # -----------------------------
 if [[ -z "$DIRECTORIO" ]]; then
-    echo "Error: debe especificar un directorio con -d"
+    echo "Error: debe especificar un directorio con -d" >&2
     exit 1
 fi
 
-# No pueden estar los dos
+if [[ ! -d "$DIRECTORIO" ]]; then
+    echo "Error: El directorio '$DIRECTORIO' no existe o no es un directorio válido." >&2
+    exit 1
+fi
+
+# Exclusión de -a y -p
 if [[ $FLAG_ARCHIVO -eq 1 && $FLAG_PANTALLA -eq 1 ]]; then
-    echo "Error: no puede usar -a y -p juntos."
+    echo "Error: no puede usar -a y -p juntos." >&2
     exit 1
 fi
 
-# Si se usa -a debe tener argumento válido
+# Debe especificar al menos -a o -p
+if [[ $FLAG_ARCHIVO -eq 0 && $FLAG_PANTALLA -eq 0 ]]; then
+    echo "Error: debe especificar -a (archivo) o -p (pantalla) para la salida." >&2
+    exit 1
+fi
+
 if [[ $FLAG_ARCHIVO -eq 1 ]]; then
-    if [[ -z "$SALIDA" || "$SALIDA" == -* ]]; then
-        echo "Error: debe especificar un archivo de salida después de -a"
-        exit 1
-    fi
-    if [[ -d "$SALIDA" ]]; then
-        echo "Error: '$SALIDA' es un directorio, debe ser un archivo JSON"
-        exit 1
-    fi
     MODO="archivo"
+    # Ya se validó antes si el argumento está presente
+    if [[ -d "$SALIDA" ]]; then
+        echo "Error: '$SALIDA' es un directorio, debe ser un archivo JSON." >&2
+        exit 1
+    fi
 elif [[ $FLAG_PANTALLA -eq 1 ]]; then
     MODO="pantalla"
-else
-    echo "Error: debe especificar -a (archivo) o -p (pantalla)"
+fi
+
+# Buscar archivos de encuestas (*.txt) en el directorio.
+# Con `nullglob` evitamos que el array contenga "*.txt" si no hay coincidencias.
+shopt -s nullglob
+archivos=("$DIRECTORIO"/*.txt)
+shopt -u nullglob
+
+# Validar que existan archivos.
+if [[ ${#archivos[@]} -eq 0 ]]; then
+    echo "Error: No se encontraron archivos (*.txt) en '$DIRECTORIO'." >&2
     exit 1
 fi
 
 # -----------------------------
 # Procesamiento
 # -----------------------------
-declare -A tiempos
-declare -A notas
-declare -A conteos
-declare -A dias
+declare -A tiempos     # Suma de tiempos de respuesta
+declare -A notas       # Suma de notas de satisfacción
+declare -A conteos     # Conteo de encuestas
+declare -A dias        # Lista de días únicos
 
+# Recorrer todos los archivos .txt en el directorio.
+# Para ser más estricto, usaremos solo *.txt
 for file in "$DIRECTORIO"/*.txt; do
     while IFS="|" read -r id fecha canal tiempo nota; do
         [[ -z "$id" ]] && continue   # salta líneas vacías
@@ -98,23 +145,48 @@ for file in "$DIRECTORIO"/*.txt; do
     done < "$file"
 done
 
-# Construir JSON
+# -----------------------------
+# Construir JSON (CORREGIDO)
+# -----------------------------
 json="{"
+primera_fecha=1 # Bandera para saber si estamos en la primera fecha
+
+# Recorrer los días únicos
 for dia in "${!dias[@]}"; do
+    # 1. Agregar coma entre fechas (si no es la primera)
+    if [[ $primera_fecha -eq 0 ]]; then
+        json+=","
+    fi
+    # Inicio del bloque de fecha
     json+="\"$dia\": {"
+    primera_fecha=0
+    primera_canal=1 # Bandera para saber si es el primer canal para esta fecha
+
+    # Recorrer todas las claves (dia_canal)
     for key in "${!conteos[@]}"; do
         d="${key%%_*}"
         canal="${key#*_}"
+
         if [[ "$d" == "$dia" ]]; then
+            # Cálculo de promedios con 2 decimales
             avg_tiempo=$(echo "scale=2; ${tiempos[$key]} / ${conteos[$key]}" | bc -l)
             avg_nota=$(echo "scale=2; ${notas[$key]} / ${conteos[$key]}" | bc -l)
-            json+="\"$canal\": {\"tiempo_respuesta_promedio\": $avg_tiempo, \"nota_satisfaccion_promedio\": $avg_nota},"
+
+            # 2. Agregar coma entre canales (si no es el primero)
+            if [[ $primera_canal -eq 0 ]]; then
+                json+=","
+            fi
+
+            # Agregar el objeto del canal
+            json+="\"$canal\": {\"tiempo_respuesta_promedio\": $avg_tiempo, \"nota_satisfaccion_promedio\": $avg_nota}"
+            primera_canal=0
         fi
     done
-    json="${json%,}" # saca coma extra
-    json+="},"
+    # Cierre del bloque de fecha
+    json+="}"
 done
-json="${json%,}}"  # cerrar último bloque
+# Cierre del bloque principal
+json+="}"
 
 # Formato bonito si existe jq
 if command -v jq >/dev/null; then
@@ -127,5 +199,7 @@ fi
 if [[ "$MODO" == "pantalla" ]]; then
     echo "$json"
 else
-    echo "$json" > "$SALIDA"
+    echo "$json" > "$ARCHIVO_DE_SALIDA"
 fi
+
+exit 0
