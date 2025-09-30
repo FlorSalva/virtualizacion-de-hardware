@@ -1,6 +1,6 @@
 #
 # ================================== Encabezado ==============================
-# Nombre del script: ejercicio2.sh
+# Nombre del script: ejercicio2.ps1
 # Numero de ejercicio: 2
 
 # ============================================================================

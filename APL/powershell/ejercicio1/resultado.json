@@ -1,0 +1,22 @@
+{
+  "2025-06-30": {
+    "Telefono": {
+      "tiempo_respuesta_promedio": 11.0,
+      "nota_satisfaccion_promedio": 2.5
+    }
+  },
+  "2025-07-01": {
+    "Email": {
+      "tiempo_respuesta_promedio": 120.0,
+      "nota_satisfaccion_promedio": 5.0
+    },
+    "Chat": {
+      "tiempo_respuesta_promedio": 21.0,
+      "nota_satisfaccion_promedio": 3.0
+    },
+    "Telefono": {
+      "tiempo_respuesta_promedio": 55.0,
+      "nota_satisfaccion_promedio": 4.0
+    }
+  }
+}
