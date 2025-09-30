@@ -101,9 +101,9 @@ fi
 
 if [[ $FLAG_ARCHIVO -eq 1 ]]; then
     MODO="archivo"
-    # Ya se validó antes si el argumento está presente
-    if [[ -d "$SALIDA" ]]; then
-        echo "Error: '$SALIDA' es un directorio, debe ser un archivo JSON." >&2
+    # Validar que el directorio de salida exista
+    if [[ ! -d "$ARCHIVO_DE_SALIDA" ]]; then
+        echo "Error: El directorio de salida '$ARCHIVO_DE_SALIDA' no existe o no es un directorio válido." >&2
         exit 1
     fi
 elif [[ $FLAG_PANTALLA -eq 1 ]]; then
@@ -151,8 +151,11 @@ done
 json="{"
 primera_fecha=1 # Bandera para saber si estamos en la primera fecha
 
-# Recorrer los días únicos
-for dia in "${!dias[@]}"; do
+# Ordenar los días cronológicamente (las fechas en formato YYYY-MM-DD se ordenan correctamente con sort)
+dias_ordenados=($(printf '%s\n' "${!dias[@]}" | sort))
+
+# Recorrer los días únicos ordenados
+for dia in "${dias_ordenados[@]}"; do
     # 1. Agregar coma entre fechas (si no es la primera)
     if [[ $primera_fecha -eq 0 ]]; then
         json+=","
@@ -199,7 +202,12 @@ fi
 if [[ "$MODO" == "pantalla" ]]; then
     echo "$json"
 else
-    echo "$json" > "$ARCHIVO_DE_SALIDA"
+    # Crear archivo con nombre fijo resultado.json en el directorio especificado
+    # Normalizar la ruta para evitar dobles barras
+    directorio_salida=$(echo "$ARCHIVO_DE_SALIDA" | sed 's|/$||')
+    archivo_salida="$directorio_salida/resultado.json"
+    echo "$json" > "$archivo_salida"
+    echo "Análisis completado. Resultados guardados en: $archivo_salida"
 fi
 
 exit 0
