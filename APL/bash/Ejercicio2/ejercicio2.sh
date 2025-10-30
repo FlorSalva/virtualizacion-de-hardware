@@ -125,7 +125,7 @@ for ((i=0; i<N; i++)); do
         fi
     done
 done
-                alt=$(echo "${dist[$u]} + $peso" | bc -l)
+
 # Nombre del informe
 dir="$(dirname "$MATRIZ")"
 ruta_informe="$dir/informe_mapa_transporte.txt"
