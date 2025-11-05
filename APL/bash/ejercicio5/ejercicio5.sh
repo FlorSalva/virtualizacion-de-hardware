@@ -3,19 +3,15 @@
 # ================================== Encabezado ==============================
 # Nombre del script: ejercicio5.sh
 # Numero de ejercicio: 2
-
 # ============================================================================
 
 # -------------------------- Integrantes del grupo ---------------------------
-#
 # Nombre/s	        |	Apellido/s	    |	DNI
-
 # Karina	        | Familia Cruz		| 42.838.266 
 # Luciano Dario     | Gomez		        | 41.572.055 
 # Micaela Valeria	| Puca			    | 39.913.189
 # Franco Damian		| Sabes			    | 38.168.884
 # Florencia		    | Salvatierra		| 38.465.901 
-
 #------------------------------------------------------------------------------
 
 mostrar_ayuda() {
@@ -72,13 +68,13 @@ for PAIS in "${PAISES[@]}"; do
     PAIS_TRIM=$(echo "$PAIS" | xargs)  # Quitar espacios
     CACHE_FILE="$CACHE_DIR/${PAIS_TRIM// /_}.cache"
 
+    CURRENT_TIME=$(date +%s)
+
     if [[ -f "$CACHE_FILE" ]]; then
         TTL_CACHE=$(grep "^# TTL:" "$CACHE_FILE" | cut -d':' -f2 | xargs)
         TIMESTAMP_CACHE=$(grep "^# TIMESTAMP:" "$CACHE_FILE" | cut -d':' -f2 | xargs)
-        CURRENT_TIME=$(date +%s)
 
-        if [[ -n "$TTL_CACHE" && -n "$TIMESTAMP_CACHE" && $((CURRENT_TIME)) -lt $((TIMESTAMP_CACHE + TTL_CACHE)) ]]; then
-            # Mostrar solo líneas que no sean encabezado
+        if [[ -n "$TTL_CACHE" && -n "$TIMESTAMP_CACHE" && $CURRENT_TIME -lt $((TIMESTAMP_CACHE + TTL_CACHE)) ]]; then
             grep -v "^# " "$CACHE_FILE"
             echo
             continue
@@ -103,17 +99,16 @@ Moneda: ${CURRENCY_NAME:-N/A} (${CURRENCY_CODE:-N/A})"
 
         echo "$OUTPUT"
 
-        # Guardar en caché con encabezado TTL y timestamp
         {
             echo "# TTL: $TTL"
-            echo "# TIMESTAMP: $(date +%s)"
+            echo "# TIMESTAMP: $CURRENT_TIME"
             echo "$OUTPUT"
         } > "$CACHE_FILE"
     else
         echo "No se encontró información para '$PAIS_TRIM'."
         {
             echo "# TTL: $TTL"
-            echo "# TIMESTAMP: $(date +%s)"
+            echo "# TIMESTAMP: $CURRENT_TIME"
             echo "No se encontró información para '$PAIS_TRIM'."
         } > "$CACHE_FILE"
     fi
