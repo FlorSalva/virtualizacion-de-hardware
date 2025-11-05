@@ -16,35 +16,38 @@
 
 <#
 .SYNOPSIS
-Consultar a la API la información respecto de los paises indicados.
+Consultar a la API la información respecto de los países indicados.
 
 .DESCRIPTION
-Permite obtener información basica de los paises indicados a travesde una consulta a una API publica.
+Permite obtener información básica de los países indicados a través de una consulta a una API pública.
 
-.PARAMETER paises
-Nombre de los paises a consultar separados por coma.
+.PARAMETER nombre
+Nombre de los países a consultar separados por coma.
 
 .PARAMETER ttl
-Tiempo que se guardara la info de consulta en cache.
+Tiempo que se guardará la info de consulta en caché (solo se aplica cuando se genera una nueva caché).
 
 .EXAMPLE
-.\ejercicio5.ps1 -paises Argentina -ttl 60
-.\ejercicio5.ps1 -paises España,Colombia -ttl 120
+.\ejercicio5.ps1 -nombre Argentina -ttl 60
+.\ejercicio5.ps1 -nombre España,Colombia -ttl 120
 #>
 
 param(
     [Parameter(Mandatory = $true)]
-    [string[]] $paises,
+    [string[]] $nombre,
 
     [Parameter(Mandatory = $true)]
     [int] $ttl
 )
+
+# Configuración de codificación
 $enc = New-Object System.Text.UTF8Encoding($true)
 [Console]::OutputEncoding = $enc
 $OutputEncoding = $enc
 
 $archCache = "$PSScriptRoot\cache.json"
 
+# Cargar cache si existe
 if (Test-Path $archCache) {
     try {
         $json = Get-Content $archCache -Raw | ConvertFrom-Json
@@ -59,41 +62,49 @@ if (Test-Path $archCache) {
     $cache = @{}
 }
 
+# Función para guardar cache
 function Guardar-Cache {
     param([hashtable]$cacheData)
     $cacheData | ConvertTo-Json -Depth 5 | Out-File $archCache -Encoding UTF8
 }
 
+# Limpiar entradas vencidas
 function Clean-Cache {
-    param([hashtable]$cacheData, [int]$tiempottl)
+    param([hashtable]$cacheData)
     $ahora = Get-Date
     $clavesVencidas = @()
+
     foreach ($k in $cacheData.Keys) {
         $entry = $cacheData[$k]
         $timestamp = Get-Date $entry.timestamp
+        $ttlGuardado = [int]$entry.ttl  # Cada entrada tiene su propio TTL
         $diferencia = ($ahora - $timestamp).TotalSeconds
-        if ($diferencia -ge $tiempottl) {
+        if ($diferencia -ge $ttlGuardado) {
             $clavesVencidas += $k
         }
     }
+
     foreach ($k in $clavesVencidas) {
         $cacheData.Remove($k)
     }
 }
 
-Clean-Cache -cacheData $cache -tiempottl $ttl
+# Limpiar cache vencida según su propio TTL
+Clean-Cache -cacheData $cache
 
-foreach ($pais in $paises) {
+# Procesar cada país
+foreach ($pais in $nombre) {
     $paisConsulta = $pais.ToLower()
 
     $usarCache = $false
     if ($cache.ContainsKey($paisConsulta)) {
         $entry = $cache[$paisConsulta]
         $timestamp = Get-Date $entry.timestamp
+        $ttlGuardado = [int]$entry.ttl
         $ahora = Get-Date
         $diferencia = ($ahora - $timestamp).TotalSeconds
 
-        if ($diferencia -lt $ttl) {
+        if ($diferencia -lt $ttlGuardado) {
             $usarCache = $true
         }
     }
@@ -103,7 +114,6 @@ foreach ($pais in $paises) {
     } else {
         try {
             $url = "https://restcountries.com/v3.1/name/$pais"
-
             $response = Invoke-WebRequest -Uri $url -UseBasicParsing
             $stream = New-Object System.IO.StreamReader($response.RawContentStream, [System.Text.Encoding]::UTF8)
             $jsonText = $stream.ReadToEnd()
@@ -120,8 +130,10 @@ foreach ($pais in $paises) {
                 Moneda    = ($info.currencies.PSObject.Properties | ForEach-Object { "$($_.Value.name) ($($_.Name))" }) -join ", "
             }
 
+            # Guardar en cache con timestamp actual y el TTL nuevo
             $cache[$paisConsulta] = @{
                 timestamp = (Get-Date).ToString("o")
+                ttl       = $ttl
                 data      = $data
             }
 
@@ -132,7 +144,7 @@ foreach ($pais in $paises) {
         }
     }
 
-    # Mostrar resultados en pantalla
+    # Mostrar resultados
     Write-Host "País: $($data.País)"
     Write-Host "Capital: $($data.Capital)"
     Write-Host "Región: $($data.Región)"
